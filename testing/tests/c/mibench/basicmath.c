@@ -1,7 +1,7 @@
 /*
- * basicmath_mibench.c — single-file version for ASPIS compilation
- * Sources merged: cubic.c, isqrt.c, rad2deg.c, snipmath.h, sniptype.h, pi.h
- */
+ basicmath_mibench.c — single-file version for ASPIS compilation
+ Sources merged: cubic.c, isqrt.c, rad2deg.c, snipmath.h, sniptype.h, pi.h
+*/
 
 #include <stdio.h>
 #include <math.h>
@@ -9,23 +9,19 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-/* ── types (from sniptype.h) ─────────────────────────────────────────── */
 typedef unsigned char  BYTE;
 typedef unsigned short WORD;
 typedef unsigned long  DWORD;
 
-/* ── PI (from pi.h) ──────────────────────────────────────────────────── */
-/* Numeric constant: avoids calling atan() which is an un-instrumented libm
- * function that ASPIS cannot duplicate. */
+
+// Numeric constant: avoids calling atan() function that ASPIS cannot duplicate.
 #ifndef PI
 #define PI 3.14159265358979323846
 #endif
 
-/* ── ASPIS fault handlers (required by the instrumentation linker) ───── */
 void DataCorruption_Handler(void) { printf("DATA_CORRUPTION_DETECTED"); exit(0); }
 void SigMismatch_Handler(void)    { printf("SIG_MISMATCH_DETECTED");    exit(0); }
 
-/* ── Math wrappers (to_duplicate): ASPIS duplicates these calls ─────── */
 __attribute__((annotate("to_duplicate")))
 static double sqrt_w(double x)              { return sqrt(x); }
 __attribute__((annotate("to_duplicate")))
@@ -37,21 +33,18 @@ static double pow_w(double x, double y)     { return pow(x, y); }
 __attribute__((annotate("to_duplicate")))
 static double fabs_w(double x)              { return fabs(x); }
 
-/* ── memcpy wrapper (to_duplicate) ──────────────────────────────────── */
 __attribute__((annotate("to_duplicate")))
 static void memcpy_to_duplicate(void *dst, const void *src, size_t n) {
     memcpy(dst, src, n);
 }
 
-/* ── integer square-root struct (from snipmath.h / isqrt.c) ─────────── */
 struct int_sqrt {
     unsigned sqrt;
     unsigned frac;
 };
 
-/* ── SolveCubic (from cubic.c) ───────────────────────────────────────── */
-/* long double removed: ASPIS passes may mishandle x86_fp80/StructRet ABI.
- * All math calls go through to_duplicate wrappers so ASPIS instruments them. */
+
+// long double removed from original code since ASPIS can have issues 
 void SolveCubic(double a, double b, double c, double d,
                 int *solutions, double *x)
 {
@@ -76,10 +69,7 @@ void SolveCubic(double a, double b, double c, double d,
     }
 }
 
-/* ── usqrt (from isqrt.c) ────────────────────────────────────────────── */
-/* uint32_t accumulators enforce 32-bit behaviour on both 32-bit and 64-bit.
- * Direct struct assignment replaces memcpy (intrinsic that ASPIS intercepts
- * and may mishandle when sizeof(long) differs across platforms). */
+// uint32_t enforces 32-bit behaviour; direct struct assignment avoids memcpy issues with ASPIS.
 #define BITSPERLONG 32
 #define TOP2BITS(x) (((x) & (3UL << (BITSPERLONG-2))) >> (BITSPERLONG-2))
 
@@ -103,7 +93,6 @@ void usqrt(unsigned long x, struct int_sqrt *q)
     q->frac = 0;
 }
 
-/* ── deg2rad / rad2deg as functions (from rad2deg.c) ─────────────────── */
 double deg2rad(double deg)
 {
     return (PI * deg / 180.0);
@@ -114,33 +103,38 @@ double rad2deg(double rad)
     return (180.0 * rad / PI);
 }
 
-/* ── main ────────────────────────────────────────────────────────────── */
 int main(void)
 {
     double x[3];
     int solutions;
     struct int_sqrt q;
 
-    /* ── SolveCubic: (x-2)(x-3)(x-5) = x³ - 10x² + 31x - 30 ──────────
-     * Expected: 3 real solutions {2, 3, 5}.
-     * Checked via Vieta's formulas (order-independent):
-     *   x0+x1+x2        = -b/a = 10
-     *   x0x1+x0x2+x1x2  =  c/a = 31
-     *   x0*x1*x2         = -d/a = 30 */
+    /*
+     ── SolveCubic: (x-2)(x-3)(x-5) = x³ - 10x² + 31x - 30
+     Expected: 3 real solutions {2, 3, 5}.
+     Checked via Vieta's formulas (order-independent):
+       x0+x1+x2        = -b/a = 10
+       x0x1+x0x2+x1x2  =  c/a = 31
+       x0*x1*x2         = -d/a = 30
+    */
     SolveCubic(1.0, -10.0, 31.0, -30.0, &solutions, x);
     int cubic_ok = (solutions == 3)
                 && (fabs_w(x[0]+x[1]+x[2]                      - 10.0) < 1e-6)
                 && (fabs_w(x[0]*x[1]+x[0]*x[2]+x[1]*x[2]       - 31.0) < 1e-6)
                 && (fabs_w(x[0]*x[1]*x[2]                       - 30.0) < 1e-6);
 
-    /* ── usqrt(9): perfect square, portable fixed-point result ──────────
-     * sqrt(9) = 3 exactly → fixed-point (×2^16) = 3×65536 = 196608.
-     * For x=9 the result fits in 32 bits: same on 32-bit and 64-bit. */
+    /*
+     ── usqrt(9): perfect square, portable fixed-point result
+     sqrt(9) = 3 exactly → fixed-point (×2^16) = 3×65536 = 196608.
+     For x=9 the result fits in 32 bits: same on 32-bit and 64-bit.
+    */
     usqrt(9, &q);
     int usqrt_ok = (q.sqrt == 196608);
 
-    /* ── deg2rad / rad2deg round-trip ───────────────────────────────────
-     * deg2rad(180°) = π, rad2deg(π) = 180°: the two constants cancel. */
+    /*
+     ── deg2rad / rad2deg round-trip
+     deg2rad(180°) = π, rad2deg(π) = 180°: the two constants cancel.
+    */
     int angle_ok = (fabs_w(rad2deg(deg2rad(180.0)) - 180.0) < 1e-9);
 
     if (cubic_ok && usqrt_ok && angle_ok)

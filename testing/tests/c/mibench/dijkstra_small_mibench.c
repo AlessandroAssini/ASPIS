@@ -1,28 +1,22 @@
 /*
- * dijkstra_small_mibench.c — ASPIS adaptation of MiBench dijkstra/small.
- *
- * Original: MiBench benchmark suite, University of Michigan.
- * Algorithm: Dijkstra's shortest path (BFS with FIFO relaxation queue).
- *
- * Adaptations for ASPIS:
- *   1. File I/O removed — hardcoded 10-node directed graph so the test is
- *      deterministic and self-contained (no input file needed).
- *   2. Working scalars kept as file-scope globals for automatic duplication.
- *   3. dequeue() writes directly to the global iNode/iDist/iPrev.
- *
- * Graph (directed, 10 nodes, NONE = no direct edge):
- *   0→1:1  0→2:4
- *   1→3:2  1→4:5
- *   2→4:1
- *   3→5:3
- *   4→5:1  4→6:2
- *   5→7:2
- *   6→7:1  6→8:3
- *   7→9:2
- *   8→9:1
- *
- * Shortest path 0→9 has cost 10
- */
+ dijkstra_small_mibench.c — ASPIS adaptation of MiBench dijkstra/small.
+
+ Original: MiBench benchmark suite, University of Michigan.
+ Algorithm: Dijkstra's shortest path (BFS with FIFO relaxation queue).
+
+ Graph (directed, 10 nodes, NONE = no direct edge):
+   0→1:1  0→2:4
+   1→3:2  1→4:5
+   2→4:1
+   3→5:3
+   4→5:1  4→6:2
+   5→7:2
+   6→7:1  6→8:3
+   7→9:2
+   8→9:1
+
+ Shortest path 0→9 has cost 10
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,16 +29,16 @@ void SigMismatch_Handler(void)    { printf("SIG_MISMATCH_DETECTED");    exit(0);
 #define Q_SIZE     100
 
 typedef struct { int iDist; int iPrev; } NODE;
-/* 
- * NOTE: The original MiBench implementation used malloc() for the queue. 
- * ASPIS/EDDI cannot automatically duplicate heap-allocated memory.
- * To enable full protection, we replaced the dynamic queue with this static 
- * pool (qPool), which is correctly shadow-copied thanks to the 
- * 'to_duplicate' annotation.
- */
+/*
+ NOTE: The original MiBench implementation used malloc() for the queue.
+ ASPIS/EDDI cannot automatically duplicate heap-allocated memory.
+ To enable full protection, we replaced the dynamic queue with this static
+ pool (qPool), which is correctly shadow-copied thanks to the
+ 'to_duplicate' annotation.
+*/
 typedef struct { int iNode; int iDist; int iPrev; } QITEM;
 
-/* Queue pool */
+// Queue pool
 __attribute__((annotate("to_duplicate")))
 static QITEM qPool[Q_SIZE];
 static int qHead_idx = 0;
@@ -67,15 +61,13 @@ static int AdjMatrix[NUM_NODES][NUM_NODES] = {
 __attribute__((annotate("to_duplicate")))
 static NODE rgnNodes[NUM_NODES];
 
-/* Queue count */
+// Queue count
 static int g_qCount = 0;
 
-/* Working variables */
+// Working variables
 static int ch;
 static int iNode, iPrev;
 static int i, iCost, iDist;
-
-/* ── Queue ──────────────────────────────────────────────────────────────── */
 
 static void enqueue(int node, int dist, int prev) {
     if (g_qCount >= Q_SIZE) { fprintf(stderr, "Queue overflow.\n"); exit(1); }
@@ -95,8 +87,6 @@ static void dequeue(void) {
         g_qCount--;
     }
 }
-
-/* ── Dijkstra ───────────────────────────────────────────────────────────── */
 
 static void dijkstra(int chStart, int chEnd) {
     for (ch = 0; ch < NUM_NODES; ch++) {
@@ -123,12 +113,10 @@ static void dijkstra(int chStart, int chEnd) {
     }
 }
 
-/* ── Main ───────────────────────────────────────────────────────────────── */
-
 int main(void) {
     dijkstra(0, 9);
 
-    /* Shortest path from 0 to 9 on the hardcoded graph is cost 10. */
+    // Shortest path from 0 to 9 on the hardcoded graph is cost 10.
     if (rgnNodes[9].iDist == 10) { 
         printf("SUCCESS");
     } else {

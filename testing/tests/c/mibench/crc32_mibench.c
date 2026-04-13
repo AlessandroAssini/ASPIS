@@ -81,9 +81,9 @@ int main(void)
 {
     const char msg[] = "Hello, World!";
 
-    // volatile impedisce al compilatore di sostituire expected con la costante
-    // nell'IR prima che EDDI agisca: in questo modo EDDI vede l'alloca e la
-    // duplica, consentendo ad ASPIS di rilevare la corruzione del dato.
+    // volatile prevents the compiler from substituting expected with the constant
+    // in the IR before EDDI acts: this way EDDI sees the alloca and duplicates
+    // it, allowing ASPIS to detect data corruption.
     volatile DWORD expected = 0xEC4AC3D0U;
 
     DWORD result = crc32buf(msg, strlen(msg));
